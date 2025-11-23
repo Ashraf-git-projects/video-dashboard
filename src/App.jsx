@@ -12,17 +12,16 @@ const STREAMS = [
 ];
 
 // sync tuning
-const SYNC_INTERVAL_MS = 300;       // how often to check offsets
-const HARD_DESYNC_THRESHOLD = 0.5;  // seconds (hard seek if beyond this)
-const SOFT_DESYNC_THRESHOLD = 0.08; // seconds (small rate tweak if beyond this)
-const MAX_RATE_OFFSET = 0.08;       // +/- around 1.0
+const SYNC_INTERVAL_MS = 300;
+const HARD_DESYNC_THRESHOLD = 0.5;
+const SOFT_DESYNC_THRESHOLD = 0.08;
+const MAX_RATE_OFFSET = 0.08;
 
 function App() {
   const playerRefs = useRef([]);
   const [masterIndex, setMasterIndex] = useState(0);
   const [syncEnabled, setSyncEnabled] = useState(true);
 
-  // helper to get safe video element
   const getVideoAt = useCallback((idx) => {
     const inst = playerRefs.current[idx];
     if (!inst || !inst.video) return null;
@@ -31,52 +30,44 @@ function App() {
     return v;
   }, []);
 
-  // core sync effect
   useEffect(() => {
     if (!syncEnabled) return;
 
     const timer = setInterval(() => {
       const masterVideo = getVideoAt(masterIndex);
-      if (!masterVideo) return;
-
-      // wait until master has some data
-      if (masterVideo.readyState < 2) return;
+      if (!masterVideo || masterVideo.readyState < 2) return;
 
       const masterTime = masterVideo.currentTime;
 
       STREAMS.forEach((_, index) => {
         if (index === masterIndex) return;
         const v = getVideoAt(index);
-        if (!v) return;
-        if (v.readyState < 2) return;
+        if (!v || v.readyState < 2) return;
 
-        const offset = v.currentTime - masterTime; // positive = ahead of master
+        const offset = v.currentTime - masterTime;
 
-        // hard resync if badly out of sync
         if (Math.abs(offset) > HARD_DESYNC_THRESHOLD) {
           try {
             v.currentTime = masterTime;
             v.playbackRate = 1.0;
-          } catch (e) {
-            
+          } catch {
+            /* noop */
           }
           return;
         }
 
         if (Math.abs(offset) > SOFT_DESYNC_THRESHOLD) {
-          const adjust = -offset * 0.5; // small proportional correction
+          const adjust = -offset * 0.5;
           let targetRate = 1.0 + adjust;
 
-          // clamp
           const minRate = 1 - MAX_RATE_OFFSET;
           const maxRate = 1 + MAX_RATE_OFFSET;
           if (targetRate < minRate) targetRate = minRate;
           if (targetRate > maxRate) targetRate = maxRate;
 
           v.playbackRate = targetRate;
-        } else {
-          // in sync, normal speed
-          if (v.playbackRate !== 1.0) v.playbackRate = 1.0;
+        } else if (v.playbackRate !== 1.0) {
+          v.playbackRate = 1.0;
         }
       });
     }, SYNC_INTERVAL_MS);
@@ -86,7 +77,6 @@ function App() {
 
   const handleToggleSync = () => {
     setSyncEnabled((prev) => {
-      // reset all rates when turning off
       if (prev) {
         STREAMS.forEach((_, idx) => {
           const v = getVideoAt(idx);
@@ -97,269 +87,369 @@ function App() {
     });
   };
 
-  const handleSetMaster = (idx) => {
-    setMasterIndex(idx);
-  };
+  const handleSetMaster = (idx) => setMasterIndex(idx);
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "#050810",
-        color: "#f5f5f5",
-        fontFamily:
-          "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        padding: "16px",
+        width: "100vw",
+        background:
+          "radial-gradient(circle at top, #0f172a 0, #020617 42%, #000 100%)",
+        padding: "24px 16px",
         boxSizing: "border-box",
+        display: "flex",
+        justifyContent: "center",
       }}
     >
-      {/* Header */}
-      <header
+      <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "16px",
-          gap: "12px",
-          flexWrap: "wrap",
+          width: "100%",
+          borderRadius: 18,
+          padding: 18,
+          boxSizing: "border-box",
+          background:
+            "linear-gradient(145deg, rgba(15,23,42,0.96), rgba(3,7,18,0.98))",
+          boxShadow:
+            "0 22px 60px rgba(0,0,0,0.75), 0 0 0 1px rgba(148,163,184,0.15)",
+          border: "1px solid rgba(30,64,175,0.6)",
+          backdropFilter: "blur(12px)",
+          overflow: "hidden",
         }}
       >
-        <div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "24px",
-              letterSpacing: "0.03em",
-            }}
-          >
-            Multi-Stream Video Dashboard
-          </h1>
-          <p
-            style={{
-              margin: "4px 0 0",
-              fontSize: "13px",
-              color: "#9ca3af",
-              maxWidth: "520px",
-            }}
-          >
-            Synchronized playback for 5 HLS streams generated from a single
-            source (simulated via sample.mp4). One stream acts as master;
-            others follow its timeline.
-          </p>
-        </div>
-
-        {/* Controls */}
-        <div
+        {/* Header */}
+        <header
           style={{
             display: "flex",
-            gap: "10px",
+            justifyContent: "space-between",
+            gap: 16,
+            marginBottom: 16,
+            paddingBottom: 12,
+            borderBottom: "1px solid rgba(30,64,175,0.35)",
             alignItems: "center",
             flexWrap: "wrap",
           }}
         >
-          <div
-            style={{
-              padding: "6px 10px",
-              borderRadius: "999px",
-              background: syncEnabled
-                ? "rgba(34,197,94,0.12)"
-                : "rgba(148,163,184,0.18)",
-              border: `1px solid ${
-                syncEnabled ? "rgba(34,197,94,0.6)" : "rgba(148,163,184,0.7)"
-              }`,
-              fontSize: "12px",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "999px",
-                background: syncEnabled ? "#22c55e" : "#9ca3af",
-                boxShadow: syncEnabled
-                  ? "0 0 8px rgba(34,197,94,0.8)"
-                  : "none",
-              }}
-            />
-            <span
-              style={{
-                fontWeight: 500,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              Sync
-            </span>
-            <button
-              onClick={handleToggleSync}
-              style={{
-                marginLeft: 4,
-                padding: "2px 10px",
-                borderRadius: "999px",
-                fontSize: "11px",
-                border: "none",
-                cursor: "pointer",
-                background: syncEnabled ? "#0f172a" : "#111827",
-                color: "#e5e7eb",
-              }}
-            >
-              {syncEnabled ? "Disable" : "Enable"}
-            </button>
-          </div>
-
-          <div
-            style={{
-              padding: "6px 10px",
-              borderRadius: "999px",
-              background: "rgba(15,23,42,0.9)",
-              border: "1px solid rgba(55,65,81,0.9)",
-              fontSize: "12px",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-          >
-            <span style={{ color: "#9ca3af" }}>Master stream:</span>
-            <select
-              value={masterIndex}
-              onChange={(e) => handleSetMaster(Number(e.target.value))}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "#e5e7eb",
-                fontSize: "12px",
-                outline: "none",
-              }}
-            >
-              {STREAMS.map((s, idx) => (
-                <option
-                  key={s.id}
-                  value={idx}
-                  style={{ background: "#020617", color: "#f9fafb" }}
-                >
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </header>
-
-      {/* Grid */}
-      <main
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: "10px",
-        }}
-      >
-        {STREAMS.map((stream, index) => {
-          const isMaster = index === masterIndex;
-          return (
+          <div>
             <div
-              key={stream.id}
               style={{
-                background:
-                  "radial-gradient(circle at top, #1f2937 0, #020617 55%)",
-                borderRadius: "10px",
-                padding: "8px",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
-                display: "flex",
-                flexDirection: "column",
-                minHeight: "220px",
-                border: isMaster
-                  ? "1px solid rgba(34,197,94,0.7)"
-                  : "1px solid rgba(148,163,184,0.35)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "3px 9px",
+                borderRadius: 999,
+                border: "1px solid rgba(56,189,248,0.7)",
+                background: "rgba(15,23,42,0.85)",
+                marginBottom: 6,
               }}
             >
-              {/* Tile header */}
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "999px",
+                  background: "#22c55e",
+                  boxShadow: "0 0 8px rgba(34,197,94,0.9)",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "#e0f2fe",
+                }}
+              >
+                Live Monitor
+              </span>
+            </div>
+
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 26,
+                letterSpacing: "0.03em",
+              }}
+            >
+              Multi-Stream Video Dashboard
+            </h1>
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: 13,
+                color: "#9ca3af",
+                maxWidth: 560,
+              }}
+            >
+              Synchronized playback for 5 HLS streams derived from a single
+              source. One stream acts as master while others continuously align
+              to its timeline.
+            </p>
+          </div>
+
+          {/* Right controls */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 10,
+              minWidth: 220,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+              }}
+            >
+              {/* Sync pill */}
               <div
                 style={{
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  background: syncEnabled
+                    ? "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(22,163,74,0.05))"
+                    : "rgba(15,23,42,0.85)",
+                  border: `1px solid ${
+                    syncEnabled
+                      ? "rgba(34,197,94,0.7)"
+                      : "rgba(148,163,184,0.7)"
+                  }`,
+                  fontSize: 12,
                   display: "flex",
-                  justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: "6px",
+                  gap: 6,
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "999px",
+                    background: syncEnabled ? "#22c55e" : "#9ca3af",
+                    boxShadow: syncEnabled
+                      ? "0 0 8px rgba(34,197,94,0.9)"
+                      : "none",
+                  }}
+                />
+                <span
+                  style={{
+                    fontWeight: 500,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Sync
+                </span>
+                <button
+                  onClick={handleToggleSync}
+                  style={{
+                    marginLeft: 4,
+                    padding: "2px 10px",
+                    borderRadius: 999,
+                    fontSize: 11,
+                    border: "none",
+                    cursor: "pointer",
+                    background: syncEnabled ? "#0f172a" : "#111827",
+                    color: "#e5e7eb",
+                  }}
+                >
+                  {syncEnabled ? "Disable" : "Enable"}
+                </button>
+              </div>
+
+              {/* Master dropdown */}
+              <div
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  background: "rgba(15,23,42,0.9)",
+                  border: "1px solid rgba(55,65,81,0.9)",
+                  fontSize: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span style={{ color: "#9ca3af" }}>Master:</span>
+                <select
+                  value={masterIndex}
+                  onChange={(e) => handleSetMaster(Number(e.target.value))}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#e5e7eb",
+                    fontSize: 12,
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {STREAMS.map((s, idx) => (
+                    <option
+                      key={s.id}
+                      value={idx}
+                      style={{ background: "#020617", color: "#f9fafb" }}
+                    >
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Small stats bar */}
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                fontSize: 11,
+                color: "#9ca3af",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 500 }}>Streams</div>
+                <div style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {STREAMS.length.toString().padStart(2, "0")}
+                </div>
+              </div>
+              <div
+                style={{
+                  width: 1,
+                  background: "rgba(75,85,99,0.7)",
+                }}
+              />
+              <div>
+                <div style={{ fontWeight: 500 }}>Source</div>
+                <div>RTSP → HLS (simulated)</div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Grid */}
+        <main
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: 14,
+            paddingTop: 4,
+          }}
+        >
+          {STREAMS.map((stream, index) => {
+            const isMaster = index === masterIndex;
+            return (
+              <div
+                key={stream.id}
+                style={{
+                  background:
+                    "radial-gradient(circle at top left, #1f2937 0, #020617 58%)",
+                  borderRadius: 14,
+                  padding: 8,
+                  boxShadow: "0 16px 40px rgba(0,0,0,0.55)",
+                  display: "flex",
+                  flexDirection: "column",
+                  minHeight: 230,
+                  border: isMaster
+                    ? "1px solid rgba(34,197,94,0.85)"
+                    : "1px solid rgba(148,163,184,0.35)",
+                  transition:
+                    "transform 120ms ease-out, box-shadow 120ms ease-out, border-color 120ms ease-out",
+                  transform: isMaster ? "translateY(-2px)" : "none",
                 }}
               >
                 <div
                   style={{
                     display: "flex",
+                    justifyContent: "space-between",
                     alignItems: "center",
-                    gap: "6px",
+                    marginBottom: 6,
                   }}
                 >
-                  <span
+                  <div
                     style={{
-                      display: "inline-block",
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "999px",
-                      background: isMaster ? "#22c55e" : "#60a5fa",
-                      boxShadow: isMaster
-                        ? "0 0 8px rgba(34,197,94,0.8)"
-                        : "0 0 6px rgba(59,130,246,0.7)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
                     }}
-                  ></span>
-                  <span style={{ fontSize: "13px", fontWeight: 500 }}>
-                    {stream.name}
-                  </span>
-                  {isMaster && (
+                  >
                     <span
                       style={{
-                        fontSize: "10px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        padding: "1px 6px",
+                        display: "inline-block",
+                        width: 8,
+                        height: 8,
                         borderRadius: "999px",
-                        border: "1px solid rgba(34,197,94,0.7)",
-                        color: "#bbf7d0",
-                        background: "rgba(22,101,52,0.22)",
+                        background: isMaster ? "#22c55e" : "#3b82f6",
+                        boxShadow: isMaster
+                          ? "0 0 8px rgba(34,197,94,0.9)"
+                          : "0 0 6px rgba(59,130,246,0.9)",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
                       }}
                     >
-                      Master
+                      {stream.name}
                     </span>
-                  )}
+                    {isMaster && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.12em",
+                          padding: "1px 7px",
+                          borderRadius: 999,
+                          border: "1px solid rgba(34,197,94,0.8)",
+                          color: "#bbf7d0",
+                          background: "rgba(22,101,52,0.25)",
+                        }}
+                      >
+                        Master
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "#9ca3af",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    ID: {stream.id.toString().padStart(2, "0")}
+                  </span>
                 </div>
-                <span
+
+                <div
                   style={{
-                    fontSize: "11px",
-                    color: "#9ca3af",
-                    fontVariantNumeric: "tabular-nums",
+                    flex: 1,
+                    minHeight: 185,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: "#000",
+                    border: "1px solid rgba(15,23,42,0.9)",
                   }}
                 >
-                  ID: {stream.id.toString().padStart(2, "0")}
-                </span>
+                  <VideoPlayer
+                    ref={(instance) => {
+                      playerRefs.current[index] = instance;
+                    }}
+                    url={stream.url}
+                    muted={true}
+                    autoPlay={true}
+                    controls={true}
+                    onReady={() => {}}
+                  />
+                </div>
               </div>
-
-              {/* Video */}
-              <div
-                style={{
-                  flex: 1,
-                  minHeight: "180px",
-                  borderRadius: "6px",
-                  overflow: "hidden",
-                  background: "#000",
-                }}
-              >
-                <VideoPlayer
-                  ref={(instance) => {
-                    playerRefs.current[index] = instance;
-                  }}
-                  url={stream.url}
-                  muted={true}
-                  autoPlay={true}
-                  controls={true}
-                  onReady={() => {
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </main>
+            );
+          })}
+        </main>
+      </div>
     </div>
   );
 }
