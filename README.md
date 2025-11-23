@@ -1,0 +1,374 @@
+# Multi-Stream Video Monitoring Dashboard (React + HLS)
+
+This project is a **multi-stream video monitoring dashboard** built with **React**.  
+It demonstrates how to:
+
+- Ingest a single **RTSP** source
+- Convert it into **multiple HLS streams** (5 streams in this implementation)
+- Display them in a **responsive grid layout**
+- Keep the streams **tightly synchronized** using a master–slave approach
+
+> ⚠️ Note: During development, the public RTSP endpoint provided was not reachable from my machine (404 / VLC unable to open).  
+> To avoid blocking the assignment, I implemented the full pipeline using a local MP4 file as the source.  
+> The same FFmpeg commands can be used with the RTSP URL by replacing the input.
+
+---
+
+## 1. Architecture Overview
+
+High-level pipeline:
+
+```text
+RTSP Source (Camera/Server)
+       │
+       │   (FFmpeg / Media server)
+       ▼
+   HLS Segments + Playlist (.ts + .m3u8)
+       │
+       │   (Express static server)
+       ▼
+   http://<host>:8000/streamX/streamX.m3u8
+       │
+       │   (React + hls.js Player)
+       ▼
+   Multi-stream dashboard (2x3/3x2 grid) with sync
+Key components:
+
+FFmpeg
+
+Reads input (RTSP or local MP4)
+
+Generates HLS playlists and segments (.m3u8 + .ts)
+
+Node + Express static server (server/index.js)
+
+Serves HLS files under http://localhost:8000/...
+
+React app (Vite)
+
+VideoPlayer component wraps hls.js
+
+App renders 5 players in a grid
+
+Sync loop adjusts playback to keep streams aligned
+
+2. RTSP → HLS Conversion (FFmpeg)
+2.1 Intended RTSP source
+The assignment RTSP link:
+
+text
+
+rtsp://13.60.76.79:8554/live2
+During development, this URL returned 404 and could not be opened even in VLC from my network. To avoid being blocked, I used a local MP4 file as the source and built the full pipeline around it. Once the RTSP endpoint is reachable, the same FFmpeg commands can be used by replacing the input URL.
+
+2.2 Local development source (sample.mp4)
+Place a video file at the project root and name it:
+
+text
+
+sample.mp4
+This file is treated as the “RTSP camera” substitute in development.
+
+2.3 FFmpeg → HLS commands (5 simulated streams)
+Each HLS stream is generated from the same input but written to a different folder and .m3u8 file.
+This simulates 5 distinct HLS URLs from one source.
+
+Run these from the project root (video-dashboard/) in separate terminals:
+
+bash
+
+# Stream 1
+ffmpeg -re -stream_loop -1 -i "sample.mp4" \
+  -c:v libx264 -preset veryfast -g 48 -sc_threshold 0 -b:v 1500k \
+  -c:a aac -b:a 96k -ar 44100 -ac 1 \
+  -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
+  hls/stream1/stream1.m3u8
+bash
+
+# Stream 2
+ffmpeg -re -stream_loop -1 -i "sample.mp4" \
+  -c:v libx264 -preset veryfast -g 48 -sc_threshold 0 -b:v 1500k \
+  -c:a aac -b:a 96k -ar 44100 -ac 1 \
+  -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
+  hls/stream2/stream2.m3u8
+bash
+
+# Stream 3
+ffmpeg -re -stream_loop -1 -i "sample.mp4" \
+  -c:v libx264 -preset veryfast -g 48 -sc_threshold 0 -b:v 1500k \
+  -c:a aac -b:a 96k -ar 44100 -ac 1 \
+  -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
+  hls/stream3/stream3.m3u8
+bash
+
+# Stream 4
+ffmpeg -re -stream_loop -1 -i "sample.mp4" \
+  -c:v libx264 -preset veryfast -g 48 -sc_threshold 0 -b:v 1500k \
+  -c:a aac -b:a 96k -ar 44100 -ac 1 \
+  -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
+  hls/stream4/stream4.m3u8
+bash
+
+# Stream 5
+ffmpeg -re -stream_loop -1 -i "sample.mp4" \
+  -c:v libx264 -preset veryfast -g 48 -sc_threshold 0 -b:v 1500k \
+  -c:a aac -b:a 96k -ar 44100 -ac 1 \
+  -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
+  hls/stream5/stream5.m3u8
+Notes:
+
+-re + -stream_loop -1 → ensures an infinite real-time loop.
+
+Small -hls_time (2s) → better for low-latency and sync.
+
+-hls_list_size 6 + -hls_flags delete_segments → sliding window + low disk usage.
+
+2.4 Switching back to RTSP (when available)
+Once the RTSP endpoint is reachable (for example rtsp://13.60.76.79:8554/live2), the only change needed is the FFmpeg input:
+bash 
+
+ffmpeg -rtsp_transport tcp -i "rtsp://13.60.76.79:8554/live2" \
+  -c:v libx264 -preset veryfast -g 48 -sc_threshold 0 -b:v 1500k \
+  -c:a aac -b:a 96k -ar 44100 -ac 1 \
+  -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
+  hls/stream1/stream1.m3u8
+and similarly for stream2–5.
+The React app and Node server do not need any changes.
+
+3. HLS Static Server (Node + Express)
+The HLS output (hls/streamX/*.m3u8 + .ts) is served by a simple Express server.
+
+File: server/index.js (simplified summary):
+
+Serves the hls directory as static files.
+
+Adds basic CORS headers to allow requests from the React dev server.
+
+Listens on port 8000.
+
+Example usage:
+
+bash
+cd server
+node index.js
+You should see:
+
+text
+HLS static server running at http://localhost:8000
+Serving folder: <project-root>/hls
+Example URLs:
+
+http://localhost:8000/stream1/stream1.m3u8
+
+http://localhost:8000/stream2/stream2.m3u8
+
+…
+
+http://localhost:8000/stream5/stream5.m3u8
+
+4. React Dashboard (Frontend)
+4.1 Tech stack
+React + Vite for fast dev experience.
+
+hls.js for HLS playback in browsers.
+
+Functional components + Hooks.
+
+4.2 VideoPlayer component (HLS player)
+VideoPlayer is a reusable component that:
+
+Receives a .m3u8 URL as a prop.
+
+Uses hls.js to attach the stream to a <video> element.
+
+Falls back to native HLS playback on Safari.
+
+Exposes the underlying HTMLVideoElement via ref for sync control.
+
+Key ideas:
+
+Prefer Hls.isSupported() to drive playback in Chrome/Firefox/Edge.
+
+Use hls.on(Hls.Events.MANIFEST_PARSED, ...) to auto-play.
+
+Handle non-fatal HLS errors (e.g., buffer stalls) with basic recovery.
+
+4.3 App component (grid + sync logic)
+The main dashboard is implemented in src/App.jsx:
+
+Renders a responsive grid of 5 tiles (each tile = one stream).
+
+Each tile shows:
+
+Stream name and ID
+
+A live status indicator
+
+A video player area
+
+At the top, the header shows:
+
+Total streams count
+
+Source description (RTSP → HLS via FFmpeg)
+
+Sync controls:
+
+Enable/Disable synchronization toggle
+
+Master stream selector dropdown
+
+5. Synchronization Strategy (Core Requirement)
+5.1 Master–Slave Model
+One stream is chosen as the master (default: Stream 1).
+
+All other streams are treated as slaves and are periodically adjusted to match the master's playback position.
+
+Internally:
+
+All VideoPlayer instances are stored in an array of refs.
+
+A setInterval runs every SYNC_INTERVAL_MS (e.g., 300ms).
+
+In each tick:
+
+Master currentTime is read.
+
+Each slave's currentTime is compared to the master.
+
+If the difference is too big → hard seek.
+
+If the difference is small but noticeable → adjust playback speed slightly.
+
+5.2 Tuning Parameters
+Defined at the top of App.jsx:
+
+js
+const SYNC_INTERVAL_MS = 300;       // how often to check offsets
+const HARD_DESYNC_THRESHOLD = 0.5;  // seconds (hard seek if beyond this)
+const SOFT_DESYNC_THRESHOLD = 0.08; // seconds (rate tweak if beyond this)
+const MAX_RATE_OFFSET = 0.08;       // +/- around 1.0
+Behavior:
+
+Hard Sync:
+If |slaveTime - masterTime| > 0.5s
+→ slave.currentTime = masterTime; and playbackRate = 1.0.
+
+Soft Sync:
+If |offset| is between 0.08s and 0.5s
+→ playbackRate is nudged slightly above or below 1.0
+to gradually pull the slave back in line without visible jumps.
+
+In-sync:
+If |offset| ≤ 0.08s
+→ playbackRate reset to 1.0.
+
+This produces streams that stay visually close to “in sync”, even with minor buffering and decoding differences across players.
+
+6. Running the Project Locally
+6.1 Prerequisites
+Node.js (LTS)
+
+npm
+
+FFmpeg installed and available in PATH
+
+6.2 Setup
+bash
+
+# clone repo
+git clone <repo-url>
+cd video-dashboard
+
+# install dependencies
+npm install
+6.3 Start HLS server
+bash
+
+cd server
+npm install      # if not already done
+node index.js
+Server will listen at http://localhost:8000.
+
+6.4 Start FFmpeg HLS generation
+In multiple terminals (from project root), run the 5 commands from section 2.3.
+
+Verify:
+bash 
+
+ls hls/stream1
+# should show stream1.m3u8 and .ts segments
+6.5 Start React dev server
+bash
+
+npm run dev
+Open the URL printed by Vite, e.g.:
+
+text
+
+http://localhost:5173/
+You should see:
+
+A 2x3 / responsive grid.
+
+5 video players.
+
+Streams playing in parallel.
+
+Sync toggle and a master selector on top.
+
+7. Deployment (Vercel / Netlify)
+The frontend (React app) can be deployed separately on Vercel/Netlify, while FFmpeg + HLS server run on a small VM or any server with public IP.
+
+7.1 Frontend deploy
+Build:
+
+bash
+
+npm run build
+Deploy the contents of dist/ to Vercel or Netlify.
+
+Update the HLS URLs in STREAMS if needed to point to your public HLS host, e.g.:
+
+js
+
+const STREAMS = [
+  { id: 1, name: "Stream 1", url: "https://your-hls-host/stream1/stream1.m3u8" },
+  // ...
+];
+7.2 Backend (HLS + FFmpeg)
+Run FFmpeg and node server/index.js on a VPS or any always-on server.
+
+Ensure port 8000 (or chosen port) is accessible to the public.
+
+Use that base URL in your React app.
+
+8. Known Limitations / Improvements
+Stall logs: With multiple players and real-time encoding, browsers may log occasional bufferStalledError messages. These are non-fatal and streams usually recover.
+
+CPU usage: Running 5 FFmpeg processes with transcoding can be CPU intensive. In a real production setup:
+
+A single media server (like MediaMTX) could fan out streams.
+
+Hardware acceleration or different tuning can be applied.
+
+RTSP endpoint: During development, the provided RTSP link returned 404 / was unreachable from my network. The pipeline is designed to work with a valid RTSP endpoint by swapping the FFmpeg input to the RTSP URL.
+
+9. Summary
+This project demonstrates:
+
+A complete RTSP → HLS → React pipeline.
+
+Generation of multiple HLS URLs from a single source.
+
+A React-based multi-stream monitoring dashboard.
+
+A simple but effective synchronization strategy to keep multiple live players aligned.
+
+Once the RTSP source is fully accessible, only the FFmpeg input needs to be changed; the rest of the system (HLS server + React dashboard + sync logic) works unchanged.
+
+
+
+
+
+
