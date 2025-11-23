@@ -3,12 +3,42 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import VideoPlayer from "./components/VideoPlayer";
 import "./index.css";
 
-const STREAMS = [
+// Local streams: when running on your machine with FFmpeg + Express
+const LOCAL_STREAMS = [
   { id: 1, name: "Stream 1", url: "http://localhost:8000/stream1/stream1.m3u8" },
   { id: 2, name: "Stream 2", url: "http://localhost:8000/stream2/stream2.m3u8" },
   { id: 3, name: "Stream 3", url: "http://localhost:8000/stream3/stream3.m3u8" },
   { id: 4, name: "Stream 4", url: "http://localhost:8000/stream4/stream4.m3u8" },
   { id: 5, name: "Stream 5", url: "http://localhost:8000/stream5/stream5.m3u8" },
+];
+
+// Remote demo streams: when deployed on Vercel (so reviewers see real playback)
+const REMOTE_STREAMS = [
+  {
+    id: 1,
+    name: "Stream 1",
+    url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+  },
+  {
+    id: 2,
+    name: "Stream 2",
+    url: "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
+  },
+  {
+    id: 3,
+    name: "Stream 3",
+    url: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+  },
+  {
+    id: 4,
+    name: "Stream 4",
+    url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8",
+  },
+  {
+    id: 5,
+    name: "Stream 5",
+    url: "https://mnmedias.api.telequebec.tv/m3u8/29880.m3u8",
+  },
 ];
 
 // sync tuning
@@ -21,6 +51,17 @@ function App() {
   const playerRefs = useRef([]);
   const [masterIndex, setMasterIndex] = useState(0);
   const [syncEnabled, setSyncEnabled] = useState(true);
+
+  // decide which streams to use based on hostname
+  const isBrowser = typeof window !== "undefined";
+  const isLocalHost =
+    isBrowser &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+  const STREAMS = isLocalHost ? LOCAL_STREAMS : REMOTE_STREAMS;
+  const sourceLabel = isLocalHost
+    ? "Local RTSP → HLS (simulated)"
+    : "Public demo HLS streams";
 
   const getVideoAt = useCallback((idx) => {
     const inst = playerRefs.current[idx];
@@ -73,7 +114,7 @@ function App() {
     }, SYNC_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, [syncEnabled, masterIndex, getVideoAt]);
+  }, [syncEnabled, masterIndex, getVideoAt, STREAMS]);
 
   const handleToggleSync = () => {
     setSyncEnabled((prev) => {
@@ -324,7 +365,7 @@ function App() {
               />
               <div>
                 <div style={{ fontWeight: 500 }}>Source</div>
-                <div>RTSP → HLS (simulated)</div>
+                <div>{sourceLabel}</div>
               </div>
             </div>
           </div>
@@ -361,6 +402,7 @@ function App() {
                   transform: isMaster ? "translateY(-2px)" : "none",
                 }}
               >
+                {/* Tile header */}
                 <div
                   style={{
                     display: "flex",
@@ -424,6 +466,7 @@ function App() {
                   </span>
                 </div>
 
+                {/* Video */}
                 <div
                   style={{
                     flex: 1,
