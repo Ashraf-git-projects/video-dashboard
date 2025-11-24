@@ -92,7 +92,7 @@ This simulates 5 distinct HLS URLs from one source.
 
 Run these from the project root (video-dashboard/) in separate terminals:
 
-bash
+
 
 # Stream 1
 ffmpeg -re -stream_loop -1 -i "sample.mp4" \
@@ -100,7 +100,7 @@ ffmpeg -re -stream_loop -1 -i "sample.mp4" \
   -c:a aac -b:a 96k -ar 44100 -ac 1 \
   -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
   hls/stream1/stream1.m3u8
-bash
+
 
 # Stream 2
 ffmpeg -re -stream_loop -1 -i "sample.mp4" \
@@ -108,7 +108,7 @@ ffmpeg -re -stream_loop -1 -i "sample.mp4" \
   -c:a aac -b:a 96k -ar 44100 -ac 1 \
   -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
   hls/stream2/stream2.m3u8
-bash
+
 
 # Stream 3
 ffmpeg -re -stream_loop -1 -i "sample.mp4" \
@@ -116,7 +116,7 @@ ffmpeg -re -stream_loop -1 -i "sample.mp4" \
   -c:a aac -b:a 96k -ar 44100 -ac 1 \
   -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
   hls/stream3/stream3.m3u8
-bash
+
 
 # Stream 4
 ffmpeg -re -stream_loop -1 -i "sample.mp4" \
@@ -124,7 +124,7 @@ ffmpeg -re -stream_loop -1 -i "sample.mp4" \
   -c:a aac -b:a 96k -ar 44100 -ac 1 \
   -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments \
   hls/stream4/stream4.m3u8
-bash
+
 
 # Stream 5
 ffmpeg -re -stream_loop -1 -i "sample.mp4" \
