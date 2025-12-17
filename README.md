@@ -73,15 +73,11 @@ Sync loop adjusts playback to keep streams aligned
 2.1 Intended RTSP source
 The assignment RTSP link:
 
-text
-
 rtsp://13.60.76.79:8554/live2
 During development, this URL returned 404 and could not be opened even in VLC from my network. To avoid being blocked, I used a local MP4 file as the source and built the full pipeline around it. Once the RTSP endpoint is reachable, the same FFmpeg commands can be used by replacing the input URL.
 
 2.2 Local development source (sample.mp4)
 Place a video file at the project root and name it:
-
-text
 
 sample.mp4
 This file is treated as the “RTSP camera” substitute in development.
@@ -170,7 +166,6 @@ cd server
 node index.js
 You should see:
 
-text
 HLS static server running at http://localhost:8000
 Serving folder: <project-root>/hls
 Example URLs:
@@ -311,17 +306,13 @@ Server will listen at http://localhost:8000.
 In multiple terminals (from project root), run the 5 commands from section 2.3.
 
 Verify:
-bash 
 
 ls hls/stream1
 # should show stream1.m3u8 and .ts segments
 6.5 Start React dev server
-bash
 
 npm run dev
 Open the URL printed by Vite, e.g.:
-
-text
 
 http://localhost:5173/
 You should see:
@@ -339,8 +330,6 @@ The frontend (React app) can be deployed separately on Vercel/Netlify, while FFm
 
 7.1 Frontend deploy
 Build:
-
-bash
 
 npm run build
 Deploy the contents of dist/ to Vercel or Netlify.
